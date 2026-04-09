@@ -584,6 +584,14 @@ const CITY_FLAGS = {
   'paris': '🇫🇷',
 };
 
+function escHtml(str) {
+  return String(str)
+    .replace(/&/g,'&amp;')
+    .replace(/</g,'&lt;')
+    .replace(/>/g,'&gt;')
+    .replace(/"/g,'&quot;');
+}
+
 function getFlag(location) {
   if (!location) return '';
   return CITY_FLAGS[location.toLowerCase()] || '';
@@ -710,7 +718,7 @@ function renderMonth(year, month) {
         : allEmojis.join('');
       const mData = (evt.members||[]).join(',');
       inner += `<div class="event-row" data-members="${mData}">
-        <span class="event-title-line">${evt.emoji||''} ${evt.title}</span>
+        <span class="event-title-line">${evt.emoji||''} ${escHtml(evt.title)}</span>
         ${mDisplay ? `<span class="event-members">${mDisplay}</span>` : ''}
       </div>`;
     });
@@ -764,7 +772,7 @@ function openModal(key) {
       const mEmojis = (evt.members||[]).map(n => `<span style="font-size:1.3rem">${MEMBERS[n]||n}</span> <span style="font-size:0.72rem;color:var(--text2)">${n}</span>`).join('  ');
       const flag = getFlag(evt.location);
       html += `<div class="modal-event">
-        <div class="modal-event-title">${evt.emoji||''} ${evt.title}</div>
+        <div class="modal-event-title">${evt.emoji||''} ${escHtml(evt.title)}</div>
         ${evt.location ? `<div style="font-size:0.72rem;color:var(--text2);font-family:'DM Mono',monospace;margin-top:5px;">📍 ${flag} ${evt.location}</div>` : ''}
         ${evt.time ? `<div style="font-size:0.72rem;color:var(--accent-dark);font-family:'DM Mono',monospace;margin-top:4px;">⏰ ${evt.time}</div>` : ''}
         ${mEmojis ? `<div class="modal-event-members" style="margin-top:8px;">${mEmojis}</div>` : ''}

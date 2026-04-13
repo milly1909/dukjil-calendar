@@ -118,6 +118,85 @@ header {
   margin-top: 12px;
   letter-spacing: 0.08em;
 }
+
+/* ── 오늘의 정보 버튼 ── */
+.today-btn {
+  margin-top: 16px;
+  padding: 10px 28px;
+  background: var(--accent);
+  color: var(--accent-text);
+  border: none;
+  border-radius: 24px;
+  font-family: 'DM Mono', monospace;
+  font-size: 0.72rem;
+  font-weight: 500;
+  letter-spacing: 0.08em;
+  cursor: pointer;
+  transition: all 0.18s ease;
+  box-shadow: 0 2px 12px rgba(193,225,69,0.35);
+}
+.today-btn:hover {
+  background: #d4f55a;
+  transform: translateY(-1px);
+  box-shadow: 0 4px 18px rgba(193,225,69,0.5);
+}
+.today-btn:active { transform: translateY(0); }
+
+/* ── 오늘의 정보 모달 섹션 ── */
+.daily-section { margin-bottom: 18px; }
+.daily-section-title {
+  font-family: 'DM Mono', monospace;
+  font-size: 0.58rem;
+  font-weight: 500;
+  letter-spacing: 0.2em;
+  color: var(--text3);
+  text-transform: uppercase;
+  margin-bottom: 8px;
+  padding-bottom: 6px;
+  border-bottom: 1px solid var(--border);
+}
+
+/* ── 응원 문구 카드 ── */
+.message-card {
+  background: var(--accent);
+  border-radius: 14px;
+  padding: 20px 20px;
+  text-align: center;
+  position: relative;
+  overflow: hidden;
+}
+.message-card::before {
+  content: '✦';
+  position: absolute;
+  top: 8px; left: 14px;
+  font-size: 0.6rem;
+  color: rgba(42,54,0,0.3);
+}
+.message-card::after {
+  content: '✦';
+  position: absolute;
+  bottom: 8px; right: 14px;
+  font-size: 0.6rem;
+  color: rgba(42,54,0,0.3);
+}
+.message-text {
+  font-size: 0.92rem;
+  font-weight: 500;
+  color: var(--accent-text);
+  line-height: 1.7;
+  word-break: keep-all;
+  font-family: 'Noto Sans KR', sans-serif;
+}
+.message-refresh {
+  margin-top: 10px;
+  font-size: 0.6rem;
+  color: rgba(42,54,0,0.5);
+  font-family: 'DM Mono', monospace;
+  cursor: pointer;
+  letter-spacing: 0.06em;
+  display: inline-block;
+}
+.message-refresh:hover { color: var(--accent-text); }
 .event-row.hidden { display: none; }
 
 /* ── STICKY NAV ── */
@@ -339,7 +418,114 @@ header {
   display: block;
 }
 
-/* ── MODAL ── */
+/* ── 오늘 날짜 반짝이 효과 ── */
+@keyframes sparkle {
+  0%   { box-shadow: 0 0 0 0 rgba(193,225,69,0.8), 0 0 0 0 rgba(193,225,69,0.4); }
+  50%  { box-shadow: 0 0 8px 4px rgba(193,225,69,0.5), 0 0 16px 8px rgba(193,225,69,0.2); }
+  100% { box-shadow: 0 0 0 0 rgba(193,225,69,0.8), 0 0 0 0 rgba(193,225,69,0.4); }
+}
+@keyframes starPop {
+  0%,100% { opacity:0.3; transform: scale(0.8); }
+  50%      { opacity:1;   transform: scale(1.2); }
+}
+.day-cell.today {
+  animation: sparkle 2s ease-in-out infinite;
+  cursor: pointer !important;
+}
+.day-cell.today .day-num {
+  background: var(--today-bg);
+  color: var(--today-text);
+  font-weight: 700;
+  position: relative;
+}
+.today-star {
+  font-size: 0.38rem;
+  position: absolute;
+  animation: starPop 1.4s ease-in-out infinite;
+  pointer-events: none;
+  line-height: 1;
+}
+
+/* ── 날씨 표시 ── */
+.weather-mini {
+  font-size: 0.46rem;
+  margin-top: 2px;
+  display: flex;
+  align-items: center;
+  gap: 3px;
+  color: var(--text2);
+  font-family: 'DM Mono', monospace;
+}
+.weather-icon { font-size: 0.7rem; }
+
+/* ── 날씨 모달 ── */
+.weather-card {
+  background: linear-gradient(135deg, #f0f8e8 0%, #e8f4f0 100%);
+  border: 1.5px solid var(--accent-dark);
+  border-radius: 12px;
+  padding: 14px 16px;
+  margin-bottom: 10px;
+}
+.weather-title {
+  font-size: 0.62rem;
+  font-family: 'DM Mono', monospace;
+  color: var(--accent-dark);
+  letter-spacing: 0.1em;
+  margin-bottom: 10px;
+  font-weight: 500;
+}
+.weather-main {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin-bottom: 12px;
+}
+.weather-big-icon { font-size: 2.4rem; line-height: 1; }
+.weather-temp-now {
+  font-size: 1.8rem;
+  font-weight: 700;
+  color: var(--text);
+  font-family: 'DM Mono', monospace;
+  line-height: 1;
+}
+.weather-sky {
+  font-size: 0.72rem;
+  color: var(--text2);
+  margin-top: 2px;
+}
+.weather-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 6px;
+}
+.weather-item {
+  background: rgba(255,255,255,0.7);
+  border-radius: 8px;
+  padding: 7px 10px;
+}
+.weather-item-label {
+  font-size: 0.55rem;
+  color: var(--text3);
+  font-family: 'DM Mono', monospace;
+  margin-bottom: 2px;
+}
+.weather-item-value {
+  font-size: 0.78rem;
+  font-weight: 500;
+  color: var(--text);
+}
+.weather-compare-pos { color: #d63b3b; }
+.weather-compare-neg { color: #3a7bd5; }
+.weather-loading {
+  text-align: center;
+  padding: 20px;
+  font-size: 0.72rem;
+  color: var(--text3);
+  font-family: 'DM Mono', monospace;
+  letter-spacing: 0.05em;
+}
+
+
 .modal-overlay {
   display: none;
   position: fixed;
@@ -362,6 +548,8 @@ header {
   position: relative;
   animation: modalIn 0.2s ease;
   box-shadow: 0 20px 60px rgba(0,0,0,0.12);
+  max-height: 88vh;
+  overflow-y: auto;
 }
 @keyframes modalIn {
   from { opacity:0; transform: translateY(14px) scale(0.97); }
@@ -463,6 +651,7 @@ footer {
   <div class="header-sub">2026 · NCT DREAM · Schedule Tracker</div>
   <div class="member-legend" id="memberLegend"></div>
   <div class="filter-hint" id="filterHint">멤버를 눌러 필터링할 수 있어요</div>
+  <button class="today-btn" onclick="openDailyModal()">✦ 오늘의 정보 보기</button>
 </header>
 
 <nav class="month-nav" id="monthNav"></nav>
@@ -562,9 +751,16 @@ const HOLIDAYS_CN = {
   '2026-10-06': '国庆节 연휴',
   '2026-10-07': '国庆节 연휴',
 };
-// ── GOOGLE SHEETS 연동 ──
+// ── 구글 시트 연동 ──
 const SHEETS_URL = 'https://script.google.com/macros/s/AKfycbzIux-54CbQ5r8qUsMuD74mSYFqwOsEpAM5f8De5XmWuE96umq96VC_uKpRHbO8en64/exec';
 let EVENTS = {};
+let MESSAGES = []; // 응원 문구 캐시
+
+// 응원 문구 랜덤 1개 추출
+function getRandomMessage() {
+  if (!MESSAGES.length) return null;
+  return MESSAGES[Math.floor(Math.random() * MESSAGES.length)];
+}
 
 // ── CITY → FLAG 매핑 ──
 const CITY_FLAGS = {
@@ -704,7 +900,7 @@ function renderMonth(year, month) {
     if (hasEvt) cls += ' has-event';
 
     let inner = `<div class="day-top">
-      <span class="day-num">${d}</span>
+      <span class="day-num">${d}${isToday ? '<span class="today-star" style="top:-4px;right:-4px;">✦</span>' : ''}</span>
     </div>`;
 
     if (isHol) inner += `<div class="holiday-label">🇰🇷 ${HOLIDAYS[key]}</div>`;
@@ -723,8 +919,21 @@ function renderMonth(year, month) {
       </div>`;
     });
 
-    const clickAttr = hasEvt ? `onclick="openModal('${key}')"` : '';
-    h += `<div class="${cls}" ${clickAttr}>${inner}</div>`;
+    // 오늘이면 날씨 미니 표시 + 클릭 시 날씨 모달
+    if (isToday) {
+      const wKey = key;
+      inner += `<div class="weather-mini" id="weather-mini-${wKey}">
+        <span class="weather-icon">🌤️</span><span>날씨 보기</span>
+      </div>`;
+      cls += ' has-event';
+      const clickFn = hasEvt
+        ? `openModalWithWeather('${key}')`
+        : `openWeatherModal('${key}')`;
+      h += `<div class="${cls}" onclick="${clickFn}">${inner}</div>`;
+    } else {
+      const clickAttr = hasEvt ? `onclick="openModal('${key}')"` : '';
+      h += `<div class="${cls}" ${clickAttr}>${inner}</div>`;
+    }
   }
 
   h += `</div></div>`;
@@ -750,40 +959,389 @@ function toggleMemberFilter(name) {
   applyFilter();
 }
 
-// ── MODAL ──
-const MONTH_KR_FULL = ['1월','2월','3월','4월','5월','6월','7월','8월','9월','10월','11월','12월'];
-const DOW_KR = ['일','월','화','수','목','금','토'];
+// ════════════════════════════════
+// ── 날씨 기능 (Open-Meteo API) ──
+// ════════════════════════════════
 
-function openModal(key) {
+// Open-Meteo: 무료, API 키 불필요, CORS 지원
+// 서울 위도/경도
+const WEATHER_LAT = 37.5665;
+const WEATHER_LON = 126.9780;
+
+// WMO 날씨 코드 → 아이콘/텍스트
+function getWeatherInfo(code, isDay=true) {
+  if (code === 0)              return { icon: isDay?'☀️':'🌙', text:'맑음' };
+  if (code <= 2)               return { icon:'⛅', text:'구름조금' };
+  if (code === 3)              return { icon:'☁️', text:'흐림' };
+  if (code <= 49)              return { icon:'🌫️', text:'안개' };
+  if (code <= 59)              return { icon:'🌦️', text:'이슬비' };
+  if (code <= 69)              return { icon:'🌧️', text:'비' };
+  if (code <= 79)              return { icon:'❄️', text:'눈' };
+  if (code <= 82)              return { icon:'🌧️', text:'소나기' };
+  if (code <= 84)              return { icon:'🌨️', text:'강한 소나기' };
+  if (code <= 99)              return { icon:'⛈️', text:'뇌우' };
+  return { icon:'🌤️', text:'보통' };
+}
+
+// 풍속 → 강도 텍스트
+function getWindText(wsd) {
+  const w = parseFloat(wsd);
+  if (w < 4)  return '약한 바람';
+  if (w < 9)  return '약간 강한 바람';
+  if (w < 14) return '강한 바람 🍃';
+  return '매우 강한 바람 💨';
+}
+
+// 체감온도 계산
+function getFeelsLike(tmp, wsd, reh) {
+  const t = parseFloat(tmp);
+  const w = parseFloat(wsd);
+  const h = parseFloat(reh);
+  if (t <= 10 && w >= 1.3) {
+    return (13.12 + 0.6215*t - 11.37*Math.pow(w*3.6,0.16) + 0.3965*t*Math.pow(w*3.6,0.16)).toFixed(1);
+  }
+  if (t >= 27) {
+    return (-8.78469475556 + 1.61139411*t + 2.3385248808*h
+      - 0.14611605*t*h - 0.012308094*t*t
+      - 0.016424828*h*h + 0.002211732*t*t*h).toFixed(1);
+  }
+  return t.toFixed(1);
+}
+
+// Open-Meteo API 호출 (오늘 날씨)
+async function fetchWeatherData() {
+  const url = `https://api.open-meteo.com/v1/forecast`
+    + `?latitude=${WEATHER_LAT}&longitude=${WEATHER_LON}`
+    + `&current=temperature_2m,relative_humidity_2m,apparent_temperature,weather_code,wind_speed_10m,is_day`
+    + `&daily=weather_code,temperature_2m_max,temperature_2m_min,precipitation_probability_max`
+    + `&timezone=Asia%2FSeoul&forecast_days=2`;
+  const res = await fetch(url);
+  if (!res.ok) throw new Error(`HTTP ${res.status}`);
+  return await res.json();
+}
+
+// Open-Meteo 과거 API 호출 (어제 날씨)
+async function fetchYesterdayTemp() {
+  const yesterday = new Date();
+  yesterday.setDate(yesterday.getDate() - 1);
+  const dateStr = yesterday.toISOString().slice(0,10);
+  const url = `https://historical-forecast-api.open-meteo.com/v1/forecast`
+    + `?latitude=${WEATHER_LAT}&longitude=${WEATHER_LON}`
+    + `&daily=temperature_2m_max,temperature_2m_min`
+    + `&timezone=Asia%2FSeoul`
+    + `&start_date=${dateStr}&end_date=${dateStr}`;
+  const res = await fetch(url);
+  if (!res.ok) return null;
+  const json = await res.json();
+  // 어제 평균기온 = (최고+최저)/2
+  const max = json?.daily?.temperature_2m_max?.[0];
+  const min = json?.daily?.temperature_2m_min?.[0];
+  if (max == null || min == null) return null;
+  return ((max + min) / 2).toFixed(1);
+}
+
+// 날씨 모달 열기 (일정 없는 오늘)
+async function openWeatherModal(key) {
+  await _openModalCore(key, true);
+}
+
+// 날씨 + 일정 모달 열기 (일정 있는 오늘)
+async function openModalWithWeather(key) {
+  await _openModalCore(key, true);
+}
+
+// ── 오늘의 정보 모달 ──
+async function openDailyModal() {
+  console.log('=== openDailyModal 시작 ===');
+  console.log('MESSAGES 상태:', typeof MESSAGES, Array.isArray(MESSAGES), MESSAGES);
+  console.log('EVENTS 키 수:', Object.keys(EVENTS).length);
+
+  // 모달 먼저 열기
+  const content = document.getElementById('modalContent');
+  console.log('modalContent 요소:', content);
+  content.innerHTML = '<div style="padding:8px;font-size:0.75rem;color:#666;">로딩 중...</div>';
+  document.getElementById('modalOverlay').classList.add('open');
+  document.body.style.overflow = 'hidden';
+
+  try {
+    const today = new Date();
+    const y = today.getFullYear(), mo = today.getMonth(), d = today.getDate();
+    const key = dKey(y, mo+1, d);
+    const dowNames = ['일','월','화','수','목','금','토'];
+    const monthNames = ['1월','2월','3월','4월','5월','6월','7월','8월','9월','10월','11월','12월'];
+
+    // 전체 컨테이너
+    content.innerHTML = '';
+
+    // ── 날짜 헤더 ──
+    const dateEl = document.createElement('div');
+    dateEl.style.cssText = 'font-family:\'DM Mono\',monospace;font-size:0.65rem;color:#9a9e88;letter-spacing:0.15em;margin-bottom:14px;';
+    dateEl.textContent = y + ' · ' + monthNames[mo] + ' ' + d + '일 (' + dowNames[today.getDay()] + ')';
+    content.appendChild(dateEl);
+
+    // ── ① 오늘의 일정 ──
+    const evts = EVENTS[key] || [];
+    const hol = HOLIDAYS[key];
+    const holJP = HOLIDAYS_JP[key];
+    const holCN = HOLIDAYS_CN[key];
+    if (evts.length > 0 || hol || holJP || holCN) {
+      const sec = document.createElement('div');
+      sec.style.cssText = 'margin-bottom:16px;';
+      let sHtml = '<div style="font-family:\'DM Mono\',monospace;font-size:0.58rem;font-weight:500;letter-spacing:0.2em;color:#9a9e88;text-transform:uppercase;margin-bottom:8px;padding-bottom:6px;border-bottom:1px solid #e2e5d4;">📅 오늘의 일정</div>';
+      if (hol) sHtml += '<div style="font-size:0.72rem;color:#d63b3b;margin-bottom:4px;">🇰🇷 ' + hol + '</div>';
+      if (holJP) sHtml += '<div style="font-size:0.72rem;color:#c4889e;margin-bottom:4px;">🇯🇵 ' + holJP + '</div>';
+      if (holCN) sHtml += '<div style="font-size:0.72rem;color:#c49060;margin-bottom:4px;">🇨🇳 ' + holCN + '</div>';
+      evts.forEach(function(evt) {
+        const mTxt = (evt.members||[]).map(function(n){ return (MEMBERS[n]||n); }).join(' ');
+        const flag = getFlag(evt.location);
+        sHtml += '<div style="background:rgba(193,225,69,0.13);border-left:2px solid #a8cc1a;border-radius:6px;padding:10px 12px;margin-bottom:6px;">';
+        sHtml += '<div style="font-size:0.82rem;font-weight:500;color:#1a1c14;margin-bottom:4px;">' + (evt.emoji||'') + ' ' + escHtml(evt.title) + '</div>';
+        if (evt.location) sHtml += '<div style="font-size:0.7rem;color:#5a5e48;">📍 ' + flag + ' ' + evt.location + '</div>';
+        if (evt.time) sHtml += '<div style="font-size:0.7rem;color:#6e8a00;">⏰ ' + evt.time + '</div>';
+        if (mTxt) sHtml += '<div style="font-size:1rem;margin-top:4px;">' + mTxt + '</div>';
+        sHtml += '</div>';
+      });
+      sec.innerHTML = sHtml;
+      content.appendChild(sec);
+    }
+
+    // ── ② 응원 한마디 ──
+    const msgSection = document.createElement('div');
+    msgSection.style.cssText = 'margin-bottom:16px;';
+    const msgTitle = document.createElement('div');
+    msgTitle.style.cssText = 'font-family:\'DM Mono\',monospace;font-size:0.58rem;font-weight:500;letter-spacing:0.2em;color:#9a9e88;text-transform:uppercase;margin-bottom:8px;padding-bottom:6px;border-bottom:1px solid #e2e5d4;';
+    msgTitle.textContent = '💚 NCT 응원 한마디';
+    msgSection.appendChild(msgTitle);
+
+    const msgCard = document.createElement('div');
+    msgCard.style.cssText = 'background:#C1E145;border-radius:14px;padding:20px;text-align:center;';
+
+    const msgText = document.createElement('div');
+    msgText.id = 'messageText';
+    msgText.style.cssText = 'font-size:0.92rem;font-weight:500;color:#2a3600;line-height:1.7;word-break:keep-all;';
+    const msgList = (Array.isArray(MESSAGES) && MESSAGES.length > 0) ? MESSAGES : ['오늘도 드림과 함께 빛나는 하루 보내요 ✨'];
+    console.log('메시지 섹션 추가 중, msgList:', msgList, '선택된 메시지:', msgList[Math.floor(Math.random() * msgList.length)]);
+    msgText.textContent = msgList[Math.floor(Math.random() * msgList.length)];
+    msgCard.appendChild(msgText);
+
+    const refreshBtn = document.createElement('div');
+    refreshBtn.style.cssText = 'margin-top:10px;font-size:0.6rem;color:rgba(42,54,0,0.5);cursor:pointer;font-family:\'DM Mono\',monospace;';
+    refreshBtn.textContent = '↺ 다른 문구 보기';
+    refreshBtn.onclick = function() {
+      const newMsg = msgList[Math.floor(Math.random() * msgList.length)];
+      document.getElementById('messageText').textContent = newMsg;
+    };
+    msgCard.appendChild(refreshBtn);
+    msgSection.appendChild(msgCard);
+    content.appendChild(msgSection);
+    console.log('메시지 섹션 DOM 추가 완료. content 자식 수:', content.children.length);
+    console.log('content innerHTML 일부:', content.innerHTML.substring(0, 300));
+
+    // ── ③ 날씨 ──
+    const wxSection = document.createElement('div');
+    wxSection.style.cssText = 'margin-bottom:16px;';
+    const wxTitle = document.createElement('div');
+    wxTitle.style.cssText = 'font-family:\'DM Mono\',monospace;font-size:0.58rem;font-weight:500;letter-spacing:0.2em;color:#9a9e88;text-transform:uppercase;margin-bottom:8px;padding-bottom:6px;border-bottom:1px solid #e2e5d4;';
+    wxTitle.textContent = '🌤️ 오늘의 서울 날씨';
+    wxSection.appendChild(wxTitle);
+
+    const wxLoading = document.createElement('div');
+    wxLoading.id = 'dailyWeatherResult';
+    wxLoading.style.cssText = 'background:linear-gradient(135deg,#f0f8e8,#e8f4f0);border:1.5px solid #6e8a00;border-radius:12px;padding:20px;text-align:center;';
+    wxLoading.innerHTML = '<div style="font-size:2rem;margin-bottom:8px;">🐶</div><div style="font-size:0.78rem;color:#5a5e48;line-height:1.7;">므엉이가 날씨를 조회하고 있어요.<br>잠시만 기다려주세요...</div>';
+    wxSection.appendChild(wxLoading);
+    content.appendChild(wxSection);
+
+    // ── 날씨 API ──
+    const MIN_MS = 3000, t0 = Date.now();
+    let wxHtml = '<div style="text-align:center;padding:12px;color:#9a9e88;font-size:0.72rem;">날씨를 불러오지 못했어요 😢</div>';
+    try {
+      const [data, yesterdayAvg] = await Promise.all([fetchWeatherData(), fetchYesterdayTemp().catch(function(){return null;})]);
+      const c = data.current, dd = data.daily;
+      const TMP=c.temperature_2m?.toFixed(1), FEELS=c.apparent_temperature?.toFixed(1);
+      const REH=c.relative_humidity_2m, WSD=c.wind_speed_10m?.toFixed(1);
+      const sky=getWeatherInfo(c.weather_code,c.is_day);
+      const TMN=dd.temperature_2m_min?.[0]?.toFixed(1), TMX=dd.temperature_2m_max?.[0]?.toFixed(1);
+      const POP=dd.precipitation_probability_max?.[0];
+      let cmp='';
+      if(TMP&&yesterdayAvg){
+        const diff=(parseFloat(TMP)-parseFloat(yesterdayAvg)).toFixed(1);
+        const cls=parseFloat(diff)>0?'color:#d63b3b;':parseFloat(diff)<0?'color:#3a7bd5;':'';
+        const arr=parseFloat(diff)>0?'▲':parseFloat(diff)<0?'▼':'=';
+        const txt=parseFloat(diff)>0?'높아요':parseFloat(diff)<0?'낮아요':'비슷해요';
+        cmp='<span style="'+cls+'">'+arr+' 어제보다 '+Math.abs(diff)+'° '+txt+'</span>';
+      }
+      wxHtml='<div style="background:linear-gradient(135deg,#f0f8e8,#e8f4f0);border:1.5px solid #6e8a00;border-radius:12px;padding:14px 16px;">'
+        +'<div style="font-size:0.6rem;font-family:\'DM Mono\',monospace;color:#6e8a00;letter-spacing:0.1em;margin-bottom:10px;">☀️ 오늘의 서울 날씨</div>'
+        +'<div style="display:flex;align-items:center;gap:10px;margin-bottom:12px;">'
+        +'<div style="font-size:2.4rem;line-height:1;">'+sky.icon+'</div>'
+        +'<div><div style="font-size:1.8rem;font-weight:700;color:#1a1c14;font-family:\'DM Mono\',monospace;line-height:1;">'+(TMP||'--')+'°</div>'
+        +'<div style="font-size:0.72rem;color:#5a5e48;">'+sky.text+' '+cmp+'</div></div></div>'
+        +'<div style="display:grid;grid-template-columns:1fr 1fr;gap:6px;">'
+        +'<div style="background:rgba(255,255,255,0.7);border-radius:8px;padding:7px 10px;"><div style="font-size:0.55rem;color:#9a9e88;margin-bottom:2px;">☂️ 강수확률</div><div style="font-size:0.78rem;font-weight:500;">'+(POP||'--')+'%</div></div>'
+        +'<div style="background:rgba(255,255,255,0.7);border-radius:8px;padding:7px 10px;"><div style="font-size:0.55rem;color:#9a9e88;margin-bottom:2px;">🌡️ 체감온도</div><div style="font-size:0.78rem;font-weight:500;">'+(FEELS||'--')+'°</div></div>'
+        +'<div style="background:rgba(255,255,255,0.7);border-radius:8px;padding:7px 10px;"><div style="font-size:0.55rem;color:#9a9e88;margin-bottom:2px;">🔽최저 / 🔼최고</div><div style="font-size:0.78rem;font-weight:500;">'+(TMN||'--')+'° / '+(TMX||'--')+'°</div></div>'
+        +'<div style="background:rgba(255,255,255,0.7);border-radius:8px;padding:7px 10px;"><div style="font-size:0.55rem;color:#9a9e88;margin-bottom:2px;">💨 바람</div><div style="font-size:0.65rem;font-weight:500;">'+(WSD?getWindText(WSD):'--')+'</div></div>'
+        +'<div style="background:rgba(255,255,255,0.7);border-radius:8px;padding:7px 10px;"><div style="font-size:0.55rem;color:#9a9e88;margin-bottom:2px;">💧 습도</div><div style="font-size:0.78rem;font-weight:500;">'+(REH||'--')+'%</div></div>'
+        +'</div></div>';
+    } catch(e){ console.error('날씨 오류:',e); }
+
+    const remain = Math.max(0, MIN_MS-(Date.now()-t0));
+    await new Promise(function(r){setTimeout(r,remain);});
+    const wxEl = document.getElementById('dailyWeatherResult');
+    if(wxEl){ wxEl.outerHTML = wxHtml; }
+
+  } catch(e) {
+    console.error('openDailyModal 오류:', e);
+    document.getElementById('modalContent').innerHTML = '<div style="padding:20px;text-align:center;color:#9a9e88;font-size:0.78rem;">오류: '+e.message+'</div>';
+  }
+}
+
+// 모달 핵심 로직 (날씨 포함 여부 선택)
+async function _openModalCore(key, withWeather = false) {
   const [y, m, d] = key.split('-').map(Number);
   const dow = new Date(y, m-1, d).getDay();
   const evts = EVENTS[key] || [];
   const hol = HOLIDAYS[key];
 
+  // 날짜 헤더
   let html = `<div class="modal-date">2026 · ${MONTH_KR_FULL[m-1]} ${d}일 (${DOW_KR[dow]})</div>`;
   if (hol) html += `<div class="modal-holiday">🇰🇷 ${hol}</div>`;
   if (HOLIDAYS_JP[key]) html += `<div class="modal-holiday" style="color:var(--holiday-jp)">🇯🇵 ${HOLIDAYS_JP[key]}</div>`;
   if (HOLIDAYS_CN[key]) html += `<div class="modal-holiday" style="color:var(--holiday-cn)">🇨🇳 ${HOLIDAYS_CN[key]}</div>`;
 
-  if (evts.length === 0) {
-    html += `<div style="color:var(--text3);font-size:0.78rem;margin-top:8px;">등록된 일정이 없어요</div>`;
-  } else {
-    evts.forEach(evt => {
-      const mEmojis = (evt.members||[]).map(n => `<span style="font-size:1.3rem">${MEMBERS[n]||n}</span> <span style="font-size:0.72rem;color:var(--text2)">${n}</span>`).join('  ');
-      const flag = getFlag(evt.location);
-      html += `<div class="modal-event">
-        <div class="modal-event-title">${evt.emoji||''} ${escHtml(evt.title)}</div>
-        ${evt.location ? `<div style="font-size:0.72rem;color:var(--text2);font-family:'DM Mono',monospace;margin-top:5px;">📍 ${flag} ${evt.location}</div>` : ''}
-        ${evt.time ? `<div style="font-size:0.72rem;color:var(--accent-dark);font-family:'DM Mono',monospace;margin-top:4px;">⏰ ${evt.time}</div>` : ''}
-        ${mEmojis ? `<div class="modal-event-members" style="margin-top:8px;">${mEmojis}</div>` : ''}
-      </div>`;
-    });
+  // 일정
+  evts.forEach(evt => {
+    const mEmojis = (evt.members||[]).map(n =>
+      `<span style="font-size:1.3rem">${MEMBERS[n]||n}</span> <span style="font-size:0.72rem;color:var(--text2)">${n}</span>`
+    ).join('  ');
+    const flag = getFlag(evt.location);
+    html += `<div class="modal-event">
+      <div class="modal-event-title">${evt.emoji||''} ${escHtml(evt.title)}</div>
+      ${evt.location ? `<div style="font-size:0.72rem;color:var(--text2);font-family:'DM Mono',monospace;margin-top:5px;">📍 ${flag} ${evt.location}</div>` : ''}
+      ${evt.time ? `<div style="font-size:0.72rem;color:var(--accent-dark);font-family:'DM Mono',monospace;margin-top:4px;">⏰ ${evt.time}</div>` : ''}
+      ${mEmojis ? `<div class="modal-event-members" style="margin-top:8px;">${mEmojis}</div>` : ''}
+    </div>`;
+  });
+
+  // 날씨 로딩 플레이스홀더 (모달 내부에 인라인으로)
+  if (withWeather) {
+    html += `<div id="weatherResult" style="
+      background: linear-gradient(135deg,#f0f8e8,#e8f4f0);
+      border: 1.5px solid var(--accent-dark);
+      border-radius: 12px;
+      padding: 20px 16px;
+      text-align: center;
+      margin-bottom: 10px;
+    ">
+      <div style="font-size:2rem;margin-bottom:8px;">🐶</div>
+      <div style="font-size:0.78rem;color:var(--text2);line-height:1.7;font-family:'Noto Sans KR',sans-serif;">
+        므엉이가 날씨를 조회하고 있어요.<br>잠시만 기다려주세요...
+      </div>
+    </div>`;
   }
 
   document.getElementById('modalContent').innerHTML = html;
   document.getElementById('modalOverlay').classList.add('open');
   document.body.style.overflow = 'hidden';
+
+  // 날씨 API 호출 (최소 3초 로딩 보장)
+  if (withWeather) {
+    const MIN_LOADING_MS = 3000;
+    const startTime = Date.now();
+
+    let weatherHtml = '';
+    try {
+      // 오늘 + 어제 동시 호출
+      const [data, yesterdayAvg] = await Promise.all([
+        fetchWeatherData(),
+        fetchYesterdayTemp().catch(() => null)
+      ]);
+
+      const c = data.current;
+      const d = data.daily;
+
+      const TMP    = c.temperature_2m?.toFixed(1);
+      const FEELS  = c.apparent_temperature?.toFixed(1);
+      const REH    = c.relative_humidity_2m;
+      const WSD    = c.wind_speed_10m?.toFixed(1);
+      const CODE   = c.weather_code;
+      const IS_DAY = c.is_day;
+      const TMN    = d.temperature_2m_min?.[0]?.toFixed(1);
+      const TMX    = d.temperature_2m_max?.[0]?.toFixed(1);
+      const POP    = d.precipitation_probability_max?.[0];
+
+      const sky = getWeatherInfo(CODE, IS_DAY);
+
+      // 어제 평균기온과 오늘 현재기온 비교
+      let compareHtml = '';
+      if (TMP && yesterdayAvg) {
+        const diff = (parseFloat(TMP) - parseFloat(yesterdayAvg)).toFixed(1);
+        const absDiff = Math.abs(diff);
+        const cls = diff > 0 ? 'weather-compare-pos' : diff < 0 ? 'weather-compare-neg' : '';
+        const arrow = diff > 0 ? '▲' : diff < 0 ? '▼' : '=';
+        const txt = parseFloat(diff) > 0 ? '높아요' : parseFloat(diff) < 0 ? '낮아요' : '비슷해요';
+        compareHtml = `<span class="${cls}">${arrow} 어제보다 ${absDiff}° ${txt}</span>`;
+      }
+
+      weatherHtml = `
+        <div class="weather-card">
+          <div class="weather-title">☀️ 오늘의 서울 날씨</div>
+          <div class="weather-main">
+            <div class="weather-big-icon">${sky.icon}</div>
+            <div>
+              <div class="weather-temp-now">${TMP ?? '--'}°</div>
+              <div class="weather-sky">${sky.text} ${compareHtml}</div>
+            </div>
+          </div>
+          <div class="weather-grid">
+            <div class="weather-item">
+              <div class="weather-item-label">☂️ 강수확률</div>
+              <div class="weather-item-value">${POP ?? '--'}%</div>
+            </div>
+            <div class="weather-item">
+              <div class="weather-item-label">🌡️ 체감온도</div>
+              <div class="weather-item-value">${FEELS ?? '--'}°</div>
+            </div>
+            <div class="weather-item">
+              <div class="weather-item-label">🔽 최저 / 🔼 최고</div>
+              <div class="weather-item-value">${TMN ?? '--'}° / ${TMX ?? '--'}°</div>
+            </div>
+            <div class="weather-item">
+              <div class="weather-item-label">💨 바람</div>
+              <div class="weather-item-value" style="font-size:0.65rem;">${WSD ? getWindText(WSD) : '--'}</div>
+            </div>
+            <div class="weather-item">
+              <div class="weather-item-label">💧 습도</div>
+              <div class="weather-item-value">${REH ?? '--'}%</div>
+            </div>
+          </div>
+        </div>`;
+      } catch(e) {
+        console.error('날씨 오류:', e);
+        weatherHtml = `<div style="background:linear-gradient(135deg,#f0f8e8,#e8f4f0);border:1.5px solid var(--border2);border-radius:12px;padding:16px;text-align:center;">
+          <div style="font-size:1.4rem;margin-bottom:6px;">😢</div>
+          <div style="font-size:0.72rem;color:var(--text3);line-height:1.6;">날씨를 불러오지 못했어요<br>
+          <span style="font-size:0.62rem;">${e.message || '네트워크 오류'}</span></div>
+        </div>`;
+      }
+
+    // 최소 3초 보장 후 날씨 표시
+    const elapsed = Date.now() - startTime;
+    const remain = Math.max(0, MIN_LOADING_MS - elapsed);
+    await new Promise(r => setTimeout(r, remain));
+    const el = document.getElementById('weatherResult');
+    if (el) el.outerHTML = weatherHtml;
+  }
 }
+
+// 일반 일정 모달 (날씨 없음)
+function openModal(key) {
+  _openModalCore(key, false);
+}
+
+const MONTH_KR_FULL = ['1월','2월','3월','4월','5월','6월','7월','8월','9월','10월','11월','12월'];
+const DOW_KR = ['일','월','화','수','목','금','토'];
 
 function closeModal(e) {
   if (e.target === document.getElementById('modalOverlay')) closeModalDirect();
@@ -817,12 +1375,16 @@ async function init() {
       🐶 제똥이가 일정을 불러오고 있어요
     </div>`;
 
-  // 구글 시트에서 데이터 가져오기
+  // 구글 시트에서 데이터 가져오기 (일정 + 응원 문구)
   try {
-    const res = await fetch(SHEETS_URL);
-    EVENTS = await res.json();
+    const [evtRes, msgRes] = await Promise.all([
+      fetch(SHEETS_URL),
+      fetch(SHEETS_URL + '?type=messages')
+    ]);
+    EVENTS = await evtRes.json();
+    MESSAGES = await msgRes.json();
   } catch(e) {
-    console.error('일정 로딩 실패:', e);
+    console.error('데이터 로딩 실패:', e);
   }
 
   // 캘린더 렌더링

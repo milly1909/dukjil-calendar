@@ -199,6 +199,74 @@ header {
 .message-refresh:hover { color: var(--accent-text); }
 .event-row.hidden { display: none; }
 
+/* ── 오늘의 한마디 카드 ── */
+.todayword-section { margin-bottom: 18px; }
+.todayword-section-title {
+  font-family: 'DM Mono', monospace;
+  font-size: 0.58rem;
+  font-weight: 500;
+  letter-spacing: 0.2em;
+  color: var(--text3);
+  text-transform: uppercase;
+  margin-bottom: 8px;
+  padding-bottom: 6px;
+  border-bottom: 1px solid var(--border);
+}
+.todayword-wrap {
+  border-radius: 16px;
+  padding: 22px 20px 18px;
+  position: relative;
+  overflow: hidden;
+  text-align: center;
+}
+.todayword-deco {
+  position: absolute;
+  font-size: 5rem;
+  opacity: 0.07;
+  pointer-events: none;
+  line-height: 1;
+  user-select: none;
+}
+.todayword-deco.tl { top: -10px; left: 6px; }
+.todayword-deco.br { bottom: -10px; right: 6px; }
+.todayword-emoji {
+  font-size: 2.2rem;
+  line-height: 1;
+  margin-bottom: 12px;
+  display: block;
+  filter: drop-shadow(0 2px 4px rgba(0,0,0,0.12));
+}
+.todayword-text {
+  font-size: 0.93rem;
+  font-weight: 500;
+  line-height: 1.9;
+  word-break: keep-all;
+  white-space: pre-line;
+  font-family: 'Noto Sans KR', sans-serif;
+}
+.todayword-refresh {
+  margin-top: 12px;
+  font-size: 0.58rem;
+  cursor: pointer;
+  font-family: 'DM Mono', monospace;
+  letter-spacing: 0.06em;
+  display: inline-block;
+  opacity: 0.45;
+  transition: opacity 0.15s;
+}
+.todayword-refresh:hover { opacity: 0.9; }
+.todayword-loading {
+  background: var(--surface2);
+  border: 1.5px dashed var(--border2);
+  border-radius: 14px;
+  padding: 18px;
+  text-align: center;
+  font-family: 'DM Mono', monospace;
+  font-size: 0.72rem;
+  color: var(--text3);
+  letter-spacing: 0.04em;
+}
+
 /* ── STICKY NAV ── */
 .month-nav {
   position: sticky;
@@ -754,9 +822,161 @@ const HOLIDAYS_CN = {
 // ── 구글 시트 연동 ──
 const SHEETS_URL = 'https://script.google.com/macros/s/AKfycbzIux-54CbQ5r8qUsMuD74mSYFqwOsEpAM5f8De5XmWuE96umq96VC_uKpRHbO8en64/exec';
 let EVENTS = {};
-let MESSAGES = []; // 응원 문구 캐시
+let MESSAGES = []; // 기존 응원 문구 캐시 (하위 호환)
 
-// 응원 문구 랜덤 1개 추출
+// ────────────────────────────────────────
+// ── 오늘의 한마디 시스템 ──
+// ────────────────────────────────────────
+const DAILY_MSGS_CACHE_TTL = 60 * 60 * 1000; // 1시간 캐시
+let DAILY_MESSAGES = [];     // { text, member, condition }[]
+let _dailyMsgsCacheTime = 0; // 마지막 캐시 시각
+
+// 멤버 이모지별 테마 색상 (NCT Dream 컬러)
+const MEMBER_COLORS = {
+  '🐯': { bg:'linear-gradient(135deg,#fff3e0 0%,#ffe8cc 100%)', text:'#5a2e00', sub:'rgba(90,46,0,0.45)', border:'1.5px solid #ffb347' }, // 마크
+  '🦊': { bg:'linear-gradient(135deg,#fff9ec 0%,#fef3c7 100%)', text:'#4a3200', sub:'rgba(74,50,0,0.45)', border:'1.5px solid #f59e0b' }, // 런쥔
+  '🐶': { bg:'linear-gradient(135deg,#eff6ff 0%,#dbeafe 100%)', text:'#1e3a5f', sub:'rgba(30,58,95,0.45)', border:'1.5px solid #60a5fa' }, // 제노
+  '🐻': { bg:'linear-gradient(135deg,#fdf4ff 0%,#f3e8ff 100%)', text:'#3b0764', sub:'rgba(59,7,100,0.45)', border:'1.5px solid #c084fc' }, // 해찬
+  '🐰': { bg:'linear-gradient(135deg,#fff1f2 0%,#ffe4e6 100%)', text:'#5c0011', sub:'rgba(92,0,17,0.45)',  border:'1.5px solid #fda4af' }, // 재민
+  '🐬': { bg:'linear-gradient(135deg,#ecfeff 0%,#cffafe 100%)', text:'#083344', sub:'rgba(8,51,68,0.45)',  border:'1.5px solid #67e8f9' }, // 천러
+  '🐹': { bg:'linear-gradient(135deg,#fffbeb 0%,#fef9c3 100%)', text:'#432d00', sub:'rgba(67,45,0,0.45)',  border:'1.5px solid #fde047' }, // 지성
+};
+const DEFAULT_WORD_COLOR = {
+  bg:'linear-gradient(135deg,#f1f8e9 0%,#dcedc8 100%)', text:'#2a3600', sub:'rgba(42,54,0,0.45)', border:'1.5px solid #C1E145'
+};
+
+// 구글 시트 '오늘의문구' 로드 (기존 Apps Script 연동, 1시간 캐시)
+async function loadDailyMessages() {
+  const now = Date.now();
+  if (DAILY_MESSAGES.length > 0 && now - _dailyMsgsCacheTime < DAILY_MSGS_CACHE_TTL) {
+    return DAILY_MESSAGES;
+  }
+  try {
+    const res = await fetch(SHEETS_URL + '?type=todayword');
+    if (!res.ok) throw new Error(`HTTP ${res.status}`);
+    const data = await res.json();
+    if (!Array.isArray(data) || data.length === 0) throw new Error('빈 데이터');
+    DAILY_MESSAGES = data;
+    _dailyMsgsCacheTime = now;
+  } catch(e) {
+    console.warn('오늘의문구 로딩 실패:', e);
+    if (DAILY_MESSAGES.length === 0) {
+      DAILY_MESSAGES = [{ text:'오늘도 드림과 함께 빛나는 하루 보내요 ✨', member:'💚', condition:'' }];
+    }
+  }
+  return DAILY_MESSAGES;
+}
+
+// ── 조건 매칭 알고리즘 ──
+function _matchSingleCond(cond, ctx) {
+  const c = cond.trim();
+  if (!c) return false;
+  const { today, weatherCode, isDay, evts } = ctx;
+  const month = today.getMonth() + 1;
+  const day   = today.getDate();
+  const dow   = today.getDay(); // 0=일,1=월,...,6=토
+  const lastDayOfMonth = new Date(today.getFullYear(), month, 0).getDate();
+
+  // ── 요일 매칭 ──
+  const dowMap = { '일요일':0,'월요일':1,'화요일':2,'수요일':3,'목요일':4,'금요일':5,'토요일':6 };
+  if (c in dowMap) return dow === dowMap[c];
+
+  // ── X월초/중/말 ──
+  const mPeriod = c.match(/^(\d+)월(초|중|말)$/);
+  if (mPeriod) {
+    if (month !== parseInt(mPeriod[1])) return false;
+    if (mPeriod[2] === '초') return day >= 1  && day <= 10;
+    if (mPeriod[2] === '중') return day >= 11 && day <= 20;
+    if (mPeriod[2] === '말') return day >= 21 && day <= lastDayOfMonth;
+  }
+  // ── 월초/중/말 (해당 월 무관) ──
+  if (c === '월초') return day >= 1  && day <= 10;
+  if (c === '월중') return day >= 11 && day <= 20;
+  if (c === '월말') return day >= 21 && day <= lastDayOfMonth;
+
+  // ── X월 Y일 (정확히 일치) ──
+  const exactDate = c.match(/^(\d+)월\s*(\d+)일$/);
+  if (exactDate) return month === parseInt(exactDate[1]) && day === parseInt(exactDate[2]);
+
+  // ── 날씨 매칭 (WMO 코드 기반) ──
+  if (weatherCode !== null) {
+    const isRain = (weatherCode >= 51 && weatherCode <= 82);
+    const isSnow = (weatherCode >= 71 && weatherCode <= 77);
+    if (c === '비' || c.includes('비')) return isRain;
+    if (c === '눈' || c.includes('눈')) return isSnow;
+    if (c === '맑음') return weatherCode <= 2;
+    if (c === '흐림') return weatherCode === 3;
+  }
+
+  // ── 일정 매칭: 이모지/키워드 포함 여부 ──
+  if (c.includes('일정에') || c.includes('일정')) {
+    // 이모지 추출 (유니코드 이모지)
+    const emojiMatch = c.match(/[\u{1F300}-\u{1FAFF}\u{2600}-\u{27BF}]/u);
+    // 멤버 이름 추출
+    const memberNames = Object.keys(MEMBERS);
+    const foundMember = memberNames.find(n => c.includes(n));
+    return evts.some(evt => {
+      const haystack = (evt.title || '') + (evt.description || '');
+      if (emojiMatch && haystack.includes(emojiMatch[0])) return true;
+      if (foundMember && (
+        haystack.includes(foundMember) || (evt.members || []).includes(foundMember)
+      )) return true;
+      return false;
+    });
+  }
+
+  // ── 멤버 이름 직접 기재 (예: "제노") ──
+  const memberNames = Object.keys(MEMBERS);
+  if (memberNames.includes(c)) {
+    return evts.some(evt => (evt.members || []).includes(c));
+  }
+
+  return false;
+}
+
+function matchDailyCondition(conditionStr, ctx) {
+  if (!conditionStr || !conditionStr.trim()) return false;
+  // 콤마 또는 줄바꿈으로 분리된 복합 조건은 AND로 처리
+  const parts = conditionStr.split(/[,，\n]/).map(s => s.trim()).filter(Boolean);
+  if (parts.length === 0) return false;
+  // 복합 조건이 없거나 1개이면 단순 매칭
+  if (parts.length === 1) return _matchSingleCond(parts[0], ctx);
+  // 복합: ALL match (AND)
+  return parts.every(p => _matchSingleCond(p, ctx));
+}
+
+// ── 가중치 문구 선택 (90/10 법칙) ──
+function selectDailyMessage(messages, ctx) {
+  if (!messages || !messages.length) {
+    return { text:'오늘도 드림과 함께 빛나는 하루 보내요 ✨', member:'💚', condition:'' };
+  }
+  const priority = messages.filter(m => m.condition && matchDailyCondition(m.condition, ctx));
+  const general  = messages.filter(m => !m.condition || !m.condition.trim());
+
+  if (priority.length > 0 && Math.random() < 0.90) {
+    return priority[Math.floor(Math.random() * priority.length)];
+  }
+  if (general.length > 0) {
+    return general[Math.floor(Math.random() * general.length)];
+  }
+  return messages[Math.floor(Math.random() * messages.length)];
+}
+
+// ── 오늘의 한마디 카드 HTML 생성 ──
+function buildTodayWordCard(msg) {
+  const theme = MEMBER_COLORS[msg.member] || DEFAULT_WORD_COLOR;
+  const emoji = msg.member || '💚';
+  return `<div class="todayword-wrap" style="background:${theme.bg};border:${theme.border};">
+    <span class="todayword-deco tl">${emoji}</span>
+    <span class="todayword-deco br">${emoji}</span>
+    <span class="todayword-emoji">${emoji}</span>
+    <div class="todayword-text" style="color:${theme.text};">${escHtml(msg.text).replace(/\n/g,'<br>')}</div>
+  </div>`;
+}
+
+let _lastCtx = null;
+
+// 응원 문구 랜덤 1개 추출 (기존 호환)
 function getRandomMessage() {
   if (!MESSAGES.length) return null;
   return MESSAGES[Math.floor(Math.random() * MESSAGES.length)];
@@ -919,17 +1139,14 @@ function renderMonth(year, month) {
       </div>`;
     });
 
-    // 오늘이면 날씨 미니 표시 + 클릭 시 날씨 모달
+    // 오늘이면 날씨 미니 표시 + 클릭 시 openDailyModal
     if (isToday) {
       const wKey = key;
       inner += `<div class="weather-mini" id="weather-mini-${wKey}">
         <span class="weather-icon">🌤️</span><span>날씨 보기</span>
       </div>`;
       cls += ' has-event';
-      const clickFn = hasEvt
-        ? `openModalWithWeather('${key}')`
-        : `openWeatherModal('${key}')`;
-      h += `<div class="${cls}" onclick="${clickFn}">${inner}</div>`;
+      h += `<div class="${cls}" onclick="openDailyModal()">${inner}</div>`;
     } else {
       const clickAttr = hasEvt ? `onclick="openModal('${key}')"` : '';
       h += `<div class="${cls}" ${clickAttr}>${inner}</div>`;
@@ -1059,9 +1276,25 @@ async function openDailyModal() {
   // 모달 먼저 열기
   const content = document.getElementById('modalContent');
   console.log('modalContent 요소:', content);
-  content.innerHTML = '<div style="padding:8px;font-size:0.75rem;color:#666;">로딩 중...</div>';
+  // ── 통합 로딩 UI 표시 ──
+  content.innerHTML = `
+    <div id="dailyLoadingUI" style="
+      background:linear-gradient(135deg,#f0f8e8,#e8f4f0);
+      border:1.5px solid #6e8a00;
+      border-radius:12px;
+      padding:28px 20px;
+      text-align:center;
+      margin-top:8px;
+    ">
+      <div style="font-size:2.4rem;margin-bottom:10px;">🐶</div>
+      <div style="font-size:0.78rem;color:#5a5e48;line-height:1.8;font-family:'Noto Sans KR',sans-serif;">
+        므엉이가 열심히 조회하고 있어요.<br>잠시만 기다려주세요...
+      </div>
+    </div>`;
   document.getElementById('modalOverlay').classList.add('open');
   document.body.style.overflow = 'hidden';
+
+  const MIN_MS = 3000, MAX_MS = 10000, t0 = Date.now();
 
   try {
     const today = new Date();
@@ -1069,131 +1302,121 @@ async function openDailyModal() {
     const key = dKey(y, mo+1, d);
     const dowNames = ['일','월','화','수','목','금','토'];
     const monthNames = ['1월','2월','3월','4월','5월','6월','7월','8월','9월','10월','11월','12월'];
-
-    // 전체 컨테이너
-    content.innerHTML = '';
-
-    // ── 날짜 헤더 ──
-    const dateEl = document.createElement('div');
-    dateEl.style.cssText = 'font-family:\'DM Mono\',monospace;font-size:0.65rem;color:#9a9e88;letter-spacing:0.15em;margin-bottom:14px;';
-    dateEl.textContent = y + ' · ' + monthNames[mo] + ' ' + d + '일 (' + dowNames[today.getDay()] + ')';
-    content.appendChild(dateEl);
-
-    // ── ① 오늘의 일정 ──
     const evts = EVENTS[key] || [];
-    const hol = HOLIDAYS[key];
-    const holJP = HOLIDAYS_JP[key];
-    const holCN = HOLIDAYS_CN[key];
+    const hol = HOLIDAYS[key], holJP = HOLIDAYS_JP[key], holCN = HOLIDAYS_CN[key];
+
+    // ── 날씨 + 문구 병렬 조회 (최대 10초 타임아웃) ──
+    const withTimeout = (promise, ms) => Promise.race([
+      promise,
+      new Promise((_, rej) => setTimeout(() => rej(new Error('timeout')), ms))
+    ]);
+
+    const [weatherSettled, msgsSettled] = await Promise.allSettled([
+      withTimeout((async function() {
+        const [data, yAvg] = await Promise.all([
+          fetchWeatherData(),
+          fetchYesterdayTemp().catch(function(){ return null; })
+        ]);
+        return { data, yAvg };
+      })(), MAX_MS),
+      withTimeout(loadDailyMessages(), MAX_MS)
+    ]);
+
+    // ── 최소 3초 보장 ──
+    const elapsed = Date.now() - t0;
+    if (elapsed < MIN_MS) await new Promise(r => setTimeout(r, MIN_MS - elapsed));
+
+    // ── 결과 빌드 ──
+    let html = '';
+
+    // 날짜 헤더
+    html += `<div style="font-family:'DM Mono',monospace;font-size:0.65rem;color:#9a9e88;letter-spacing:0.15em;margin-bottom:14px;">${y} · ${monthNames[mo]} ${d}일 (${dowNames[today.getDay()]})</div>`;
+
+    // ① 오늘의 일정
     if (evts.length > 0 || hol || holJP || holCN) {
-      const sec = document.createElement('div');
-      sec.style.cssText = 'margin-bottom:16px;';
-      let sHtml = '<div style="font-family:\'DM Mono\',monospace;font-size:0.58rem;font-weight:500;letter-spacing:0.2em;color:#9a9e88;text-transform:uppercase;margin-bottom:8px;padding-bottom:6px;border-bottom:1px solid #e2e5d4;">📅 오늘의 일정</div>';
-      if (hol) sHtml += '<div style="font-size:0.72rem;color:#d63b3b;margin-bottom:4px;">🇰🇷 ' + hol + '</div>';
-      if (holJP) sHtml += '<div style="font-size:0.72rem;color:#c4889e;margin-bottom:4px;">🇯🇵 ' + holJP + '</div>';
-      if (holCN) sHtml += '<div style="font-size:0.72rem;color:#c49060;margin-bottom:4px;">🇨🇳 ' + holCN + '</div>';
+      html += '<div style="margin-bottom:16px;">';
+      html += '<div style="font-family:\'DM Mono\',monospace;font-size:0.58rem;font-weight:500;letter-spacing:0.2em;color:#9a9e88;text-transform:uppercase;margin-bottom:8px;padding-bottom:6px;border-bottom:1px solid #e2e5d4;">📅 오늘의 일정</div>';
+      if (hol)   html += '<div style="font-size:0.72rem;color:#d63b3b;margin-bottom:4px;">🇰🇷 ' + hol + '</div>';
+      if (holJP) html += '<div style="font-size:0.72rem;color:#c4889e;margin-bottom:4px;">🇯🇵 ' + holJP + '</div>';
+      if (holCN) html += '<div style="font-size:0.72rem;color:#c49060;margin-bottom:4px;">🇨🇳 ' + holCN + '</div>';
       evts.forEach(function(evt) {
         const mTxt = (evt.members||[]).map(function(n){ return (MEMBERS[n]||n); }).join(' ');
         const flag = getFlag(evt.location);
-        sHtml += '<div style="background:rgba(193,225,69,0.13);border-left:2px solid #a8cc1a;border-radius:6px;padding:10px 12px;margin-bottom:6px;">';
-        sHtml += '<div style="font-size:0.82rem;font-weight:500;color:#1a1c14;margin-bottom:4px;">' + (evt.emoji||'') + ' ' + escHtml(evt.title) + '</div>';
-        if (evt.location) sHtml += '<div style="font-size:0.7rem;color:#5a5e48;">📍 ' + flag + ' ' + evt.location + '</div>';
-        if (evt.time) sHtml += '<div style="font-size:0.7rem;color:#6e8a00;">⏰ ' + evt.time + '</div>';
-        if (mTxt) sHtml += '<div style="font-size:1rem;margin-top:4px;">' + mTxt + '</div>';
-        sHtml += '</div>';
+        html += '<div style="background:rgba(193,225,69,0.13);border-left:2px solid #a8cc1a;border-radius:6px;padding:10px 12px;margin-bottom:6px;">';
+        html += '<div style="font-size:0.82rem;font-weight:500;color:#1a1c14;margin-bottom:4px;">' + (evt.emoji||'') + ' ' + escHtml(evt.title) + '</div>';
+        if (evt.location) html += '<div style="font-size:0.7rem;color:#5a5e48;">📍 ' + flag + ' ' + evt.location + '</div>';
+        if (evt.time)     html += '<div style="font-size:0.7rem;color:#6e8a00;">⏰ ' + evt.time + '</div>';
+        if (mTxt)         html += '<div style="font-size:1rem;margin-top:4px;">' + mTxt + '</div>';
+        html += '</div>';
       });
-      sec.innerHTML = sHtml;
-      content.appendChild(sec);
+      html += '</div>';
     }
 
-    // ── ② 응원 한마디 ──
-    const msgSection = document.createElement('div');
-    msgSection.style.cssText = 'margin-bottom:16px;';
-    const msgTitle = document.createElement('div');
-    msgTitle.style.cssText = 'font-family:\'DM Mono\',monospace;font-size:0.58rem;font-weight:500;letter-spacing:0.2em;color:#9a9e88;text-transform:uppercase;margin-bottom:8px;padding-bottom:6px;border-bottom:1px solid #e2e5d4;';
-    msgTitle.textContent = '💚 NCT 응원 한마디';
-    msgSection.appendChild(msgTitle);
+    // ② 오늘의 한마디
+    const msgs = (msgsSettled.status === 'fulfilled' && msgsSettled.value && msgsSettled.value.length)
+      ? msgsSettled.value
+      : (DAILY_MESSAGES.length ? DAILY_MESSAGES : [{ text:'오늘도 드림과 함께 빛나는 하루 보내요 ✨', member:'💚', condition:'' }]);
+    _lastCtx = { today, weatherCode: null, isDay: true, evts };
+    const selectedMsg = selectDailyMessage(msgs, _lastCtx);
+    html += '<div class="todayword-section">';
+    html += '<div class="todayword-section-title">💚 오늘의 한마디</div>';
+    html += buildTodayWordCard(selectedMsg);
+    html += '</div>';
 
-    const msgCard = document.createElement('div');
-    msgCard.style.cssText = 'background:#C1E145;border-radius:14px;padding:20px;text-align:center;';
+    // ③ 오늘의 날씨
+    html += '<div style="margin-bottom:16px;">';
+    html += '<div style="font-family:\'DM Mono\',monospace;font-size:0.58rem;font-weight:500;letter-spacing:0.2em;color:#9a9e88;text-transform:uppercase;margin-bottom:8px;padding-bottom:6px;border-bottom:1px solid #e2e5d4;">🌤️ 오늘의 날씨</div>';
 
-    const msgText = document.createElement('div');
-    msgText.id = 'messageText';
-    msgText.style.cssText = 'font-size:0.92rem;font-weight:500;color:#2a3600;line-height:1.7;word-break:keep-all;';
-    const msgList = (Array.isArray(MESSAGES) && MESSAGES.length > 0) ? MESSAGES : ['오늘도 드림과 함께 빛나는 하루 보내요 ✨'];
-    console.log('메시지 섹션 추가 중, msgList:', msgList, '선택된 메시지:', msgList[Math.floor(Math.random() * msgList.length)]);
-    msgText.textContent = msgList[Math.floor(Math.random() * msgList.length)];
-    msgCard.appendChild(msgText);
-
-    const refreshBtn = document.createElement('div');
-    refreshBtn.style.cssText = 'margin-top:10px;font-size:0.6rem;color:rgba(42,54,0,0.5);cursor:pointer;font-family:\'DM Mono\',monospace;';
-    refreshBtn.textContent = '↺ 다른 문구 보기';
-    refreshBtn.onclick = function() {
-      const newMsg = msgList[Math.floor(Math.random() * msgList.length)];
-      document.getElementById('messageText').textContent = newMsg;
-    };
-    msgCard.appendChild(refreshBtn);
-    msgSection.appendChild(msgCard);
-    content.appendChild(msgSection);
-    console.log('메시지 섹션 DOM 추가 완료. content 자식 수:', content.children.length);
-    console.log('content innerHTML 일부:', content.innerHTML.substring(0, 300));
-
-    // ── ③ 날씨 ──
-    const wxSection = document.createElement('div');
-    wxSection.style.cssText = 'margin-bottom:16px;';
-    const wxTitle = document.createElement('div');
-    wxTitle.style.cssText = 'font-family:\'DM Mono\',monospace;font-size:0.58rem;font-weight:500;letter-spacing:0.2em;color:#9a9e88;text-transform:uppercase;margin-bottom:8px;padding-bottom:6px;border-bottom:1px solid #e2e5d4;';
-    wxTitle.textContent = '🌤️ 오늘의 서울 날씨';
-    wxSection.appendChild(wxTitle);
-
-    const wxLoading = document.createElement('div');
-    wxLoading.id = 'dailyWeatherResult';
-    wxLoading.style.cssText = 'background:linear-gradient(135deg,#f0f8e8,#e8f4f0);border:1.5px solid #6e8a00;border-radius:12px;padding:20px;text-align:center;';
-    wxLoading.innerHTML = '<div style="font-size:2rem;margin-bottom:8px;">🐶</div><div style="font-size:0.78rem;color:#5a5e48;line-height:1.7;">므엉이가 날씨를 조회하고 있어요.<br>잠시만 기다려주세요...</div>';
-    wxSection.appendChild(wxLoading);
-    content.appendChild(wxSection);
-
-    // ── 날씨 API ──
-    const MIN_MS = 3000, t0 = Date.now();
-    let wxHtml = '<div style="text-align:center;padding:12px;color:#9a9e88;font-size:0.72rem;">날씨를 불러오지 못했어요 😢</div>';
-    try {
-      const [data, yesterdayAvg] = await Promise.all([fetchWeatherData(), fetchYesterdayTemp().catch(function(){return null;})]);
-      const c = data.current, dd = data.daily;
-      const TMP=c.temperature_2m?.toFixed(1), FEELS=c.apparent_temperature?.toFixed(1);
-      const REH=c.relative_humidity_2m, WSD=c.wind_speed_10m?.toFixed(1);
-      const sky=getWeatherInfo(c.weather_code,c.is_day);
-      const TMN=dd.temperature_2m_min?.[0]?.toFixed(1), TMX=dd.temperature_2m_max?.[0]?.toFixed(1);
-      const POP=dd.precipitation_probability_max?.[0];
-      let cmp='';
-      if(TMP&&yesterdayAvg){
-        const diff=(parseFloat(TMP)-parseFloat(yesterdayAvg)).toFixed(1);
-        const cls=parseFloat(diff)>0?'color:#d63b3b;':parseFloat(diff)<0?'color:#3a7bd5;':'';
-        const arr=parseFloat(diff)>0?'▲':parseFloat(diff)<0?'▼':'=';
-        const txt=parseFloat(diff)>0?'높아요':parseFloat(diff)<0?'낮아요':'비슷해요';
-        cmp='<span style="'+cls+'">'+arr+' 어제보다 '+Math.abs(diff)+'° '+txt+'</span>';
+    if (weatherSettled.status === 'fulfilled') {
+      try {
+        const { data, yAvg } = weatherSettled.value;
+        const c = data.current, dd = data.daily;
+        const TMP=c.temperature_2m?.toFixed(1), FEELS=c.apparent_temperature?.toFixed(1);
+        const REH=c.relative_humidity_2m, WSD=c.wind_speed_10m?.toFixed(1);
+        const weatherCode = c.weather_code;
+        _lastCtx.weatherCode = weatherCode;
+        const sky = getWeatherInfo(weatherCode, c.is_day);
+        const TMN=dd.temperature_2m_min?.[0]?.toFixed(1), TMX=dd.temperature_2m_max?.[0]?.toFixed(1);
+        const POP=dd.precipitation_probability_max?.[0];
+        let cmp = '';
+        if (TMP && yAvg) {
+          const diff = (parseFloat(TMP)-parseFloat(yAvg)).toFixed(1);
+          const cls = parseFloat(diff)>0?'color:#d63b3b;':parseFloat(diff)<0?'color:#3a7bd5;':'';
+          const arr = parseFloat(diff)>0?'▲':parseFloat(diff)<0?'▼':'=';
+          const txt = parseFloat(diff)>0?'높아요':parseFloat(diff)<0?'낮아요':'비슷해요';
+          cmp = '<span style="'+cls+'">'+arr+' 어제보다 '+Math.abs(diff)+'° '+txt+'</span>';
+        }
+        html += '<div style="background:linear-gradient(135deg,#f0f8e8,#e8f4f0);border:1.5px solid #6e8a00;border-radius:12px;padding:14px 16px;">'
+          +'<div style="font-size:0.6rem;font-family:\'DM Mono\',monospace;color:#6e8a00;letter-spacing:0.1em;margin-bottom:10px;">☀️ 오늘의 서울 날씨</div>'
+          +'<div style="display:flex;align-items:center;gap:10px;margin-bottom:12px;">'
+          +'<div style="font-size:2.4rem;line-height:1;">'+sky.icon+'</div>'
+          +'<div><div style="font-size:1.8rem;font-weight:700;color:#1a1c14;font-family:\'DM Mono\',monospace;line-height:1;">'+(TMP||'--')+'°</div>'
+          +'<div style="font-size:0.72rem;color:#5a5e48;">'+sky.text+' '+cmp+'</div></div></div>'
+          +'<div style="display:grid;grid-template-columns:1fr 1fr;gap:6px;">'
+          +'<div style="background:rgba(255,255,255,0.7);border-radius:8px;padding:7px 10px;"><div style="font-size:0.55rem;color:#9a9e88;margin-bottom:2px;">☂️ 강수확률</div><div style="font-size:0.78rem;font-weight:500;">'+(POP||'--')+'%</div></div>'
+          +'<div style="background:rgba(255,255,255,0.7);border-radius:8px;padding:7px 10px;"><div style="font-size:0.55rem;color:#9a9e88;margin-bottom:2px;">🌡️ 체감온도</div><div style="font-size:0.78rem;font-weight:500;">'+(FEELS||'--')+'°</div></div>'
+          +'<div style="background:rgba(255,255,255,0.7);border-radius:8px;padding:7px 10px;"><div style="font-size:0.55rem;color:#9a9e88;margin-bottom:2px;">🔽최저 / 🔼최고</div><div style="font-size:0.78rem;font-weight:500;">'+(TMN||'--')+'° / '+(TMX||'--')+'°</div></div>'
+          +'<div style="background:rgba(255,255,255,0.7);border-radius:8px;padding:7px 10px;"><div style="font-size:0.55rem;color:#9a9e88;margin-bottom:2px;">💨 바람</div><div style="font-size:0.65rem;font-weight:500;">'+(WSD?getWindText(WSD):'--')+'</div></div>'
+          +'<div style="background:rgba(255,255,255,0.7);border-radius:8px;padding:7px 10px;"><div style="font-size:0.55rem;color:#9a9e88;margin-bottom:2px;">💧 습도</div><div style="font-size:0.78rem;font-weight:500;">'+(REH||'--')+'%</div></div>'
+          +'</div>'
+          +'<div style="margin-top:10px;font-size:0.52rem;color:#b0b4a0;font-family:\'DM Mono\',monospace;text-align:right;letter-spacing:0.04em;">날씨 데이터 출처: Open-Meteo</div>'
+          +'</div>';
+      } catch(e) {
+        console.error('날씨 파싱 오류:', e);
+        html += '<div style="text-align:center;padding:14px;color:#9a9e88;font-size:0.78rem;">므엉이가 조회하는데 실패했어요 ⋅⌣⋅</div>';
       }
-      wxHtml='<div style="background:linear-gradient(135deg,#f0f8e8,#e8f4f0);border:1.5px solid #6e8a00;border-radius:12px;padding:14px 16px;">'
-        +'<div style="font-size:0.6rem;font-family:\'DM Mono\',monospace;color:#6e8a00;letter-spacing:0.1em;margin-bottom:10px;">☀️ 오늘의 서울 날씨</div>'
-        +'<div style="display:flex;align-items:center;gap:10px;margin-bottom:12px;">'
-        +'<div style="font-size:2.4rem;line-height:1;">'+sky.icon+'</div>'
-        +'<div><div style="font-size:1.8rem;font-weight:700;color:#1a1c14;font-family:\'DM Mono\',monospace;line-height:1;">'+(TMP||'--')+'°</div>'
-        +'<div style="font-size:0.72rem;color:#5a5e48;">'+sky.text+' '+cmp+'</div></div></div>'
-        +'<div style="display:grid;grid-template-columns:1fr 1fr;gap:6px;">'
-        +'<div style="background:rgba(255,255,255,0.7);border-radius:8px;padding:7px 10px;"><div style="font-size:0.55rem;color:#9a9e88;margin-bottom:2px;">☂️ 강수확률</div><div style="font-size:0.78rem;font-weight:500;">'+(POP||'--')+'%</div></div>'
-        +'<div style="background:rgba(255,255,255,0.7);border-radius:8px;padding:7px 10px;"><div style="font-size:0.55rem;color:#9a9e88;margin-bottom:2px;">🌡️ 체감온도</div><div style="font-size:0.78rem;font-weight:500;">'+(FEELS||'--')+'°</div></div>'
-        +'<div style="background:rgba(255,255,255,0.7);border-radius:8px;padding:7px 10px;"><div style="font-size:0.55rem;color:#9a9e88;margin-bottom:2px;">🔽최저 / 🔼최고</div><div style="font-size:0.78rem;font-weight:500;">'+(TMN||'--')+'° / '+(TMX||'--')+'°</div></div>'
-        +'<div style="background:rgba(255,255,255,0.7);border-radius:8px;padding:7px 10px;"><div style="font-size:0.55rem;color:#9a9e88;margin-bottom:2px;">💨 바람</div><div style="font-size:0.65rem;font-weight:500;">'+(WSD?getWindText(WSD):'--')+'</div></div>'
-        +'<div style="background:rgba(255,255,255,0.7);border-radius:8px;padding:7px 10px;"><div style="font-size:0.55rem;color:#9a9e88;margin-bottom:2px;">💧 습도</div><div style="font-size:0.78rem;font-weight:500;">'+(REH||'--')+'%</div></div>'
-        +'</div></div>';
-    } catch(e){ console.error('날씨 오류:',e); }
+    } else {
+      console.error('날씨 조회 실패:', weatherSettled.reason);
+      html += '<div style="text-align:center;padding:14px;color:#9a9e88;font-size:0.78rem;">므엉이가 조회하는데 실패했어요 ⋅⌣⋅</div>';
+    }
+    html += '</div>';
 
-    const remain = Math.max(0, MIN_MS-(Date.now()-t0));
-    await new Promise(function(r){setTimeout(r,remain);});
-    const wxEl = document.getElementById('dailyWeatherResult');
-    if(wxEl){ wxEl.outerHTML = wxHtml; }
+    // ── 로딩 UI → 실제 내용으로 교체 ──
+    content.innerHTML = html;
 
   } catch(e) {
     console.error('openDailyModal 오류:', e);
-    document.getElementById('modalContent').innerHTML = '<div style="padding:20px;text-align:center;color:#9a9e88;font-size:0.78rem;">오류: '+e.message+'</div>';
+    content.innerHTML = '<div style="padding:20px;text-align:center;color:#9a9e88;font-size:0.78rem;">므엉이가 조회하는데 실패했어요 ⋅⌣⋅</div>';
   }
 }
 
@@ -1375,7 +1598,7 @@ async function init() {
       🐶 제똥이가 일정을 불러오고 있어요
     </div>`;
 
-  // 구글 시트에서 데이터 가져오기 (일정 + 응원 문구)
+  // 구글 시트에서 데이터 가져오기 (일정 + 응원 문구 + 오늘의 한마디)
   try {
     const [evtRes, msgRes] = await Promise.all([
       fetch(SHEETS_URL),
@@ -1386,6 +1609,8 @@ async function init() {
   } catch(e) {
     console.error('데이터 로딩 실패:', e);
   }
+  // 오늘의 한마디 시트 병렬 프리로드 (모달 오픈 시 빠르게 표시되도록)
+  loadDailyMessages().catch(e => console.warn('오늘의문구 프리로드 실패:', e));
 
   // 캘린더 렌더링
   let cal = '';

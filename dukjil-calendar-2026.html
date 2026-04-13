@@ -871,14 +871,15 @@ async function loadDailyMessages() {
 function _matchSingleCond(cond, ctx) {
   const c = cond.trim();
   if (!c) return false;
-  const { today, weatherCode, isDay, evts } = ctx;
-  const month = today.getMonth() + 1;
-  const day   = today.getDate();
-  const dow   = today.getDay(); // 0=일,1=월,...,6=토
-  const lastDayOfMonth = new Date(today.getFullYear(), month, 0).getDate();
+  const { today, weatherCode, evts } = ctx;
+  const month   = today.getMonth() + 1;
+  const day     = today.getDate();
+  const dow     = today.getDay();
+  const nowMins = today.getHours() * 60 + today.getMinutes();
+  const lastDay = new Date(today.getFullYear(), month, 0).getDate();
 
-  // ── 요일 매칭 ──
-  const dowMap = { '일요일':0,'월요일':1,'화요일':2,'수요일':3,'목요일':4,'금요일':5,'토요일':6 };
+  // ── 요일 ──
+  const dowMap = {'일요일':0,'월요일':1,'화요일':2,'수요일':3,'목요일':4,'금요일':5,'토요일':6};
   if (c in dowMap) return dow === dowMap[c];
 
   // ── X월초/중/말 ──
@@ -887,47 +888,66 @@ function _matchSingleCond(cond, ctx) {
     if (month !== parseInt(mPeriod[1])) return false;
     if (mPeriod[2] === '초') return day >= 1  && day <= 10;
     if (mPeriod[2] === '중') return day >= 11 && day <= 20;
-    if (mPeriod[2] === '말') return day >= 21 && day <= lastDayOfMonth;
+    if (mPeriod[2] === '말') return day >= 21 && day <= lastDay;
   }
-  // ── 월초/중/말 (해당 월 무관) ──
   if (c === '월초') return day >= 1  && day <= 10;
   if (c === '월중') return day >= 11 && day <= 20;
-  if (c === '월말') return day >= 21 && day <= lastDayOfMonth;
+  if (c === '월말') return day >= 21 && day <= lastDay;
 
-  // ── X월 Y일 (정확히 일치) ──
-  const exactDate = c.match(/^(\d+)월\s*(\d+)일$/);
+  // ── X월 전체 (예: "10월") ──
+  const fullMonth = c.match(/^(\d+)월$/);
+  if (fullMonth) return month === parseInt(fullMonth[1]);
+
+  // ── X월Y일~X월Z일 날짜 범위 ──
+  const dateRange = c.match(/^(\d+)월(\d+)일[~\-](\d+)월(\d+)일$/);
+  if (dateRange) {
+    const sm = parseInt(dateRange[1]), sd = parseInt(dateRange[2]);
+    const em = parseInt(dateRange[3]), ed = parseInt(dateRange[4]);
+    const cur = month * 100 + day;
+    return cur >= sm * 100 + sd && cur <= em * 100 + ed;
+  }
+
+  // ── X월Y일 정확히 ──
+  const exactDate = c.match(/^(\d+)월(\d+)일$/);
   if (exactDate) return month === parseInt(exactDate[1]) && day === parseInt(exactDate[2]);
 
-  // ── 날씨 매칭 (WMO 코드 기반) ──
+  // ── HH:MM이후 / HH:MM이전 ──
+  const timeAfter  = c.match(/^(\d{1,2}):(\d{2})이후$/);
+  if (timeAfter)  return nowMins >= parseInt(timeAfter[1])  * 60 + parseInt(timeAfter[2]);
+  const timeBefore = c.match(/^(\d{1,2}):(\d{2})이전$/);
+  if (timeBefore) return nowMins <  parseInt(timeBefore[1]) * 60 + parseInt(timeBefore[2]);
+
+  // ── 날씨 ──
   if (weatherCode !== null) {
-    const isRain = (weatherCode >= 51 && weatherCode <= 82);
-    const isSnow = (weatherCode >= 71 && weatherCode <= 77);
-    if (c === '비' || c.includes('비')) return isRain;
-    if (c === '눈' || c.includes('눈')) return isSnow;
+    const isRain = weatherCode >= 51 && weatherCode <= 82 && !(weatherCode >= 71 && weatherCode <= 77);
+    const isSnow = weatherCode >= 71 && weatherCode <= 77;
+    if (c === '비')   return isRain;
+    if (c === '눈')   return isSnow;
     if (c === '맑음') return weatherCode <= 2;
     if (c === '흐림') return weatherCode === 3;
   }
 
-  // ── 일정 매칭: 이모지/키워드 포함 여부 ──
-  if (c.includes('일정에') || c.includes('일정')) {
-    // 이모지 추출 (유니코드 이모지)
-    const emojiMatch = c.match(/[\u{1F300}-\u{1FAFF}\u{2600}-\u{27BF}]/u);
-    // 멤버 이름 추출
-    const memberNames = Object.keys(MEMBERS);
-    const foundMember = memberNames.find(n => c.includes(n));
-    return evts.some(evt => {
-      const haystack = (evt.title || '') + (evt.description || '');
-      if (emojiMatch && haystack.includes(emojiMatch[0])) return true;
-      if (foundMember && (
-        haystack.includes(foundMember) || (evt.members || []).includes(foundMember)
-      )) return true;
-      return false;
-    });
+  // ── 일정 이모지:💿 형식 (일정 제목/설명에 해당 이모지 포함) ──
+  const emojiCond = c.match(/^일정 이모지[-:](.+)$/);
+  if (emojiCond) {
+    const target = emojiCond[1].trim();
+    return evts.some(evt =>
+      (evt.title || '').includes(target) || (evt.description || '').includes(target)
+    );
   }
 
-  // ── 멤버 이름 직접 기재 (예: "제노") ──
-  const memberNames = Object.keys(MEMBERS);
-  if (memberNames.includes(c)) {
+  // ── 멤버-지성 형식 (일정 members 배열에 해당 멤버 포함) ──
+  const memberCond = c.match(/^멤버[-:](.+)$/);
+  if (memberCond) {
+    const target = memberCond[1].trim();
+    return evts.some(evt =>
+      (evt.members || []).includes(target) ||
+      (evt.title || '').includes(target)
+    );
+  }
+
+  // ── 멤버 이름 직접 기재 (단독) ──
+  if (Object.keys(MEMBERS).includes(c)) {
     return evts.some(evt => (evt.members || []).includes(c));
   }
 
@@ -936,13 +956,9 @@ function _matchSingleCond(cond, ctx) {
 
 function matchDailyCondition(conditionStr, ctx) {
   if (!conditionStr || !conditionStr.trim()) return false;
-  // 콤마 또는 줄바꿈으로 분리된 복합 조건은 AND로 처리
-  const parts = conditionStr.split(/[,，\n]/).map(s => s.trim()).filter(Boolean);
-  if (parts.length === 0) return false;
-  // 복합 조건이 없거나 1개이면 단순 매칭
-  if (parts.length === 1) return _matchSingleCond(parts[0], ctx);
-  // 복합: ALL match (AND)
-  return parts.every(p => _matchSingleCond(p, ctx));
+  // & 또는 콤마/줄바꿈으로 분리 → 모두 AND 조건
+  const parts = conditionStr.split(/[&,，\n]/).map(s => s.trim()).filter(Boolean);
+  return parts.length > 0 && parts.every(p => _matchSingleCond(p, ctx));
 }
 
 // ── 가중치 문구 선택 (90/10 법칙) ──
@@ -1294,7 +1310,7 @@ async function openDailyModal() {
   document.getElementById('modalOverlay').classList.add('open');
   document.body.style.overflow = 'hidden';
 
-  const MIN_MS = 3000, MAX_MS = 10000, t0 = Date.now();
+  const MIN_MS = 2000, MAX_MS = 10000, t0 = Date.now();
 
   try {
     const today = new Date();

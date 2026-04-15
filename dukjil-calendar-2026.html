@@ -822,7 +822,7 @@ const HOLIDAYS_CN = {
 // ── 구글 시트 연동 ──
 const SHEETS_URL = 'https://script.google.com/macros/s/AKfycbzIux-54CbQ5r8qUsMuD74mSYFqwOsEpAM5f8De5XmWuE96umq96VC_uKpRHbO8en64/exec';
 let EVENTS = {};
-let MESSAGES = []; // 기존 응원 문구 캐시 (하위 호환)
+
 
 // ────────────────────────────────────────
 // ── 오늘의 한마디 시스템 ──
@@ -927,12 +927,14 @@ function _matchSingleCond(cond, ctx) {
     if (c === '흐림') return weatherCode === 3;
   }
 
-  // ── 일정 이모지:💿 형식 (일정 제목/설명에 해당 이모지 포함) ──
-  const emojiCond = c.match(/^일정 이모지[-:](.+)$/);
+  // ── 일정 이모지:💿 / 이모지:💿 / Emoji:💿 형식 (모두 인식) ──
+  const emojiCond = c.match(/^(?:일정 )?(?:이모지|Emoji|emoji)[-:](.+)$/i);
   if (emojiCond) {
     const target = emojiCond[1].trim();
     return evts.some(evt =>
-      (evt.title || '').includes(target) || (evt.description || '').includes(target)
+      (evt.emoji || '').includes(target) ||
+      (evt.title || '').includes(target) ||
+      (evt.description || '').includes(target)
     );
   }
 
@@ -961,7 +963,7 @@ function matchDailyCondition(conditionStr, ctx) {
   return parts.length > 0 && parts.every(p => _matchSingleCond(p, ctx));
 }
 
-// ── 가중치 문구 선택 (90/10 법칙) ──
+// ── 가중치 문구 선택 (80/20 법칙) ──
 function selectDailyMessage(messages, ctx) {
   if (!messages || !messages.length) {
     return { text:'오늘도 드림과 함께 빛나는 하루 보내요 ✨', member:'💚', condition:'' };
@@ -969,7 +971,7 @@ function selectDailyMessage(messages, ctx) {
   const priority = messages.filter(m => m.condition && matchDailyCondition(m.condition, ctx));
   const general  = messages.filter(m => !m.condition || !m.condition.trim());
 
-  if (priority.length > 0 && Math.random() < 0.90) {
+  if (priority.length > 0 && Math.random() < 0.80) {
     return priority[Math.floor(Math.random() * priority.length)];
   }
   if (general.length > 0) {
@@ -991,12 +993,6 @@ function buildTodayWordCard(msg) {
 }
 
 let _lastCtx = null;
-
-// 응원 문구 랜덤 1개 추출 (기존 호환)
-function getRandomMessage() {
-  if (!MESSAGES.length) return null;
-  return MESSAGES[Math.floor(Math.random() * MESSAGES.length)];
-}
 
 // ── CITY → FLAG 매핑 ──
 const CITY_FLAGS = {
@@ -1285,13 +1281,7 @@ async function openModalWithWeather(key) {
 
 // ── 오늘의 정보 모달 ──
 async function openDailyModal() {
-  console.log('=== openDailyModal 시작 ===');
-  console.log('MESSAGES 상태:', typeof MESSAGES, Array.isArray(MESSAGES), MESSAGES);
-  console.log('EVENTS 키 수:', Object.keys(EVENTS).length);
-
-  // 모달 먼저 열기
   const content = document.getElementById('modalContent');
-  console.log('modalContent 요소:', content);
   // ── 통합 로딩 UI 표시 ──
   content.innerHTML = `
     <div id="dailyLoadingUI" style="
@@ -1614,16 +1604,12 @@ async function init() {
       🐶 제똥이가 일정을 불러오고 있어요
     </div>`;
 
-  // 구글 시트에서 데이터 가져오기 (일정 + 응원 문구 + 오늘의 한마디)
+  // 구글 시트에서 데이터 가져오기 (일정) - 독립 처리로 항상 로드 보장
   try {
-    const [evtRes, msgRes] = await Promise.all([
-      fetch(SHEETS_URL),
-      fetch(SHEETS_URL + '?type=messages')
-    ]);
+    const evtRes = await fetch(SHEETS_URL);
     EVENTS = await evtRes.json();
-    MESSAGES = await msgRes.json();
   } catch(e) {
-    console.error('데이터 로딩 실패:', e);
+    console.error('일정 데이터 로딩 실패:', e);
   }
   // 오늘의 한마디 시트 병렬 프리로드 (모달 오픈 시 빠르게 표시되도록)
   loadDailyMessages().catch(e => console.warn('오늘의문구 프리로드 실패:', e));
